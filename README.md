@@ -111,6 +111,7 @@ You can reproduce the evaluation results by running the individual scripts:
    python evaluate_hallucination.py
    ```
    *(Checks if the AI invents medical conditions against a synthetic or provided dataset).*
+   * **Average Faithfulness Score**: 3.0 / 10.0 (Baseline Test)
 
 2. **Demographic Bias & Fairness Testing:**
    ```bash
