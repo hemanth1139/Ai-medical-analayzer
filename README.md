@@ -156,8 +156,9 @@ If you utilize this architecture, codebase, or methodology in your academic rese
 
 ```bibtex
 @article{patientactionguide2026,
-  title={Patient Action Guide: A Culturally Calibrated Multimodal Medical AI for Localized Clinical Extraction},
-  author={Author Name(s) Here},
+  title={Patient Action Guide: A Culturally Calibrated Multimodal 
+         Medical AI for Localized Clinical Extraction},
+  author={Hemanth Kumar D and Balaji R and Dr. Beulah A},
   journal={IEEE [Pending Publication]},
   year={2026}
 }
