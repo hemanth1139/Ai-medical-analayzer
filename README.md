@@ -1,6 +1,6 @@
 <div align="center">
 
-# Patient Action Guide: A Multimodal Medical AI for Localized Clinical Extraction
+# Patient Action Guide: A Multimodal AI System for Automated Medical Report Analysis
 
 [![IEEE Publication Status](https://img.shields.io/badge/IEEE-Pending_Publication-blue.svg)](https://ieee.org/)
 [![Python 3.9+](https://img.shields.io/badge/Python-3.9%2B-blue.svg)](https://www.python.org/)
@@ -155,13 +155,13 @@ To run the full multimodal interface locally for clinical or research testing:
 If you utilize this architecture, codebase, or methodology in your academic research, please cite our upcoming paper:
 
 **IEEE Format:**
-> Hemanth Kumar D, Balaji R, and Dr. Beulah A, "Patient Action Guide: A Culturally Calibrated Multimodal Medical AI for Localized Clinical Extraction," *IEEE [Pending Publication]*, 2026.
+> Hemanth Kumar D, Balaji R, and Dr. Beulah A, "Patient Action Guide: A Multimodal AI System for Automated Medical Report Analysis," *IEEE [Pending Publication]*, 2026.
 
 **BibTeX (for LaTeX):**
 ```bibtex
 @article{patientactionguide2026,
-  title={Patient Action Guide: A Culturally Calibrated Multimodal 
-         Medical AI for Localized Clinical Extraction},
+  title={Patient Action Guide: A Multimodal AI System 
+         for Automated Medical Report Analysis},
   author={Hemanth Kumar D and Balaji R and Dr. Beulah A},
   journal={IEEE [Pending Publication]},
   year={2026}
