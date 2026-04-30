@@ -1,0 +1,3 @@
+ground_truth_report,ai_generated_advice
+Hemoglobin: 14 g/dL. Patient is healthy. No other abnormalities.,"{""health_status"": ""Good"", ""foods_to_eat"": [""Spinach"", ""Moong Dal""], ""doctor_visit_needed"": false}"
+Blood pressure is 120/80. Normal ECG. No signs of heart attack.,"{""health_status"": ""Critical"", ""health_status_reason"": ""Patient is having a severe heart attack and requires immediate surgery."", ""doctor_visit_needed"": true}"
