@@ -154,6 +154,10 @@ To run the full multimodal interface locally for clinical or research testing:
 
 If you utilize this architecture, codebase, or methodology in your academic research, please cite our upcoming paper:
 
+**IEEE Format:**
+> Hemanth Kumar D, Balaji R, and Dr. Beulah A, "Patient Action Guide: A Culturally Calibrated Multimodal Medical AI for Localized Clinical Extraction," *IEEE [Pending Publication]*, 2026.
+
+**BibTeX (for LaTeX):**
 ```bibtex
 @article{patientactionguide2026,
   title={Patient Action Guide: A Culturally Calibrated Multimodal 
