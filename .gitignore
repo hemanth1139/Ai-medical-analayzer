@@ -2,3 +2,10 @@
 __pycache__/
 *.pyc
 .DS_Store
+evaluation_summary.json
+full_evaluation_report.json
+ablation_results.json
+comparison_results.json
+fairness_evaluation_results.json
+robustness_evaluation_results.json
+clinician_review_sheet.csv

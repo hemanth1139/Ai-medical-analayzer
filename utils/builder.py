@@ -1,9 +1,20 @@
 from config import MEDICAL_KNOWLEDGE, SCHEMA_KEYS
 
-def build_prompt(age, gender, language, document_description):
+_VISUAL_EXTRA = """
+9. VISUAL DOCUMENT MODE: This is a scanned image, photo, or rendered PDF page. Read all visible text carefully, including handwriting, stamps, and table layouts. For ECG/X-ray/echo images, describe only what is explicitly labeled or written on the image — do not invent findings that are not visible.
+"""
+
+_TEXT_EXTRA = """
+9. TEXT DOCUMENT MODE: This is typed or digitally extracted clinical text. Base every recommendation only on values and statements present in the document.
+"""
+
+
+def build_prompt(age, gender, language, document_description, analysis_mode="text"):
     lang_instruction = "response in simple plain English that a layman understands. Avoid all medical jargon."
     if language == "Tamil":
         lang_instruction = "write all values and recommendations entirely in Tamil script. Use simple, easily understood Tamil terms appropriate for a layman, not complex medical terminology."
+
+    mode_extra = _VISUAL_EXTRA if analysis_mode == "visual" else _TEXT_EXTRA
 
     prompt = f"""
 You are a 'Patient Action Guide' assistant. A medical document has been uploaded by the patient.
@@ -18,7 +29,7 @@ INSTRUCTIONS:
 6. Make sure your advice accounts for whether the patient is male, female, young, middle-aged, or elderly.
 7. Return ONLY a valid JSON object matching the requested schema. No markdown, no code fences, no extra text.
 8. You must generate valid, nested FHIR JSON for the fhir_bundle field. Map any detected lab results or vitals to FHIR "Observation" resources (e.g., mapping a Hemoglobin level of 14 g/dL to an Observation with a LOINC code system, valueQuantity, and unit). If no quantifiable lab results are present, omit the fhir_bundle by returning null.
-
+{mode_extra}
 Below is your MEDICAL KNOWLEDGE BASE to pull facts from:
 ------------------------------------------
 {MEDICAL_KNOWLEDGE}

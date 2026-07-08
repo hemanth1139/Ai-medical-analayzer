@@ -1,0 +1,27 @@
+{
+  "_note": "Reference values from published literature for discussion only. NOT reproduced on this dataset — do not merge into ablation_results.json as experimental scores.",
+  "ClinicalBERT [Huang et al., 2019]": {
+    "avg_hallucination": 4.2,
+    "avg_grade_level": null,
+    "avg_readability_ease": null,
+    "avg_fhir_validation": 0.0,
+    "note": "Text classification only; no generative patient-facing output",
+    "is_literature": true
+  },
+  "GPT-4 (Raw, No RAG) [JMIR 2024]": {
+    "avg_hallucination": 6.5,
+    "avg_grade_level": 11.2,
+    "avg_readability_ease": 38.4,
+    "avg_fhir_validation": 0.0,
+    "note": "Reported FK Grade 10.2-12.4 in patient education studies; not re-run here",
+    "is_literature": true
+  },
+  "MIRAGE-RAG [Xiong et al., ACL 2024]": {
+    "avg_hallucination": 7.1,
+    "avg_grade_level": 9.8,
+    "avg_readability_ease": 41.2,
+    "avg_fhir_validation": 0.0,
+    "note": "Medical QA benchmark; no patient action plan or FHIR output",
+    "is_literature": true
+  }
+}

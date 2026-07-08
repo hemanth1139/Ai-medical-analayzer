@@ -1,197 +1,156 @@
-import os
+"""
+evaluate_comparison.py
+======================
+Compare temperature settings on the same dataset using the full agent pipeline.
+"""
+
+import argparse
 import csv
 import json
+import os
 import warnings
 
-# Suppress the FutureWarning from the deprecated google.generativeai package
 warnings.filterwarnings("ignore", category=FutureWarning)
 
 import google.generativeai as genai
 from dotenv import load_dotenv
 
-# Import metrics and core agent runner
-from utils.agent import run_agent
+from evaluation.config import (
+    DEFAULT_AGE,
+    DEFAULT_GENDER,
+    DEFAULT_LANGUAGE,
+    DEFAULT_COMPARISON_COUNT,
+    EVAL_MODEL,
+    REAL_WORLD_CASES_CSV,
+)
 from evaluation.metrics import calculate_readability, validate_fhir_bundle
+from evaluation.stats import format_mean_std, summarize
 from evaluate_hallucination import evaluate_case
+from utils.agent import run_agent
 
 load_dotenv()
 
-def get_configured_api_key():
-    """Load and validate the GEMINI_API_KEY from the environment."""
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key or api_key == "PASTE_YOUR_KEY_HERE":
-        print("=" * 60)
-        print("ERROR: GEMINI_API_KEY not found or not set!")
-        print("Please open the .env file in the project root and add:")
-        print("  GEMINI_API_KEY=your_actual_key_here")
-        print("Get a free key from: https://aistudio.google.com")
-        print("=" * 60)
+
+def get_api_key():
+    key = os.environ.get("GEMINI_API_KEY")
+    if not key or key in ("PASTE_YOUR_KEY_HERE", "get_your_free_key_from_aistudio.google.com"):
+        print("ERROR: GEMINI_API_KEY required in .env")
         return None
-    return api_key
+    return key
 
 
-def run_comparison_benchmark(input_file="real_world_cases.csv", count=5):
-    api_key = get_configured_api_key()
+def run_comparison_benchmark(
+    input_file=REAL_WORLD_CASES_CSV,
+    count=DEFAULT_COMPARISON_COUNT,
+    output_md="comparison_results.md",
+):
+    api_key = get_api_key()
     if not api_key:
         return
 
-    # Configure genai ONCE at the start — this is shared by all modules
     genai.configure(api_key=api_key)
 
-    print(f"Loading first {count} test cases from {input_file}...")
-
     cases = []
-    try:
-        with open(input_file, 'r', encoding='utf-8') as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                cases.append(row)
-                if len(cases) >= count:
-                    break
-    except FileNotFoundError:
-        print(f"Error: {input_file} not found. Run download_pmc.py first.")
-        return
+    with open(input_file, encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            cases.append(row)
+            if len(cases) >= count:
+                break
 
     if not cases:
-        print("Error: No cases found in the dataset file.")
+        print(f"No cases in {input_file}")
         return
 
-    print(f"Loaded {len(cases)} cases. Starting benchmark...")
-
-    # Configuration definitions to benchmark
     configs = [
         {"name": "Deterministic (Temp 0.0)", "temp": 0.0},
-        {"name": "Exploratory (Temp 0.7)", "temp": 0.7}
+        {"name": "Exploratory (Temp 0.7)", "temp": 0.7},
     ]
 
     results = {}
+    print(f"Comparison benchmark | n={len(cases)} | input={input_file}")
 
     for config in configs:
-        name = config["name"]
-        temp = config["temp"]
-        print(f"\nBenchmarking configuration: {name} (Temperature: {temp})...")
+        name, temp = config["name"], config["temp"]
+        print(f"\nConfiguration: {name}")
 
-        # Build a model instance for this temperature configuration
         gen_config = genai.types.GenerationConfig(
-            temperature=temp,
-            response_mime_type="application/json"
+            temperature=temp, response_mime_type="application/json"
         )
-        model = genai.GenerativeModel('gemini-2.5-flash', generation_config=gen_config)
+        model = genai.GenerativeModel(EVAL_MODEL, generation_config=gen_config)
 
-        total_hallucination_score = 0.0
-        total_readability_grade = 0.0
-        total_readability_ease = 0.0
-        total_fhir_score = 0.0
-        successful_runs = 0
+        hal_list, grade_list, ease_list, fhir_list = [], [], [], []
+        successful = 0
 
         for idx, case in enumerate(cases):
-            print(f"  Running case {idx+1}/{len(cases)}...", end=" ", flush=True)
-            gt_report = case.get("ground_truth_report", "")
-
-            if not gt_report.strip():
-                print("SKIPPED (empty report)")
+            gt = case.get("ground_truth_report", "").strip()
+            if not gt:
                 continue
+            print(f"  Case {idx + 1}/{len(cases)}...", end=" ", flush=True)
 
-            # Form payload matching app.py expectations
-            extracted_data = {"type": "text", "content": gt_report}
-
+            extracted = {"type": "text", "content": gt}
             try:
-                # Run the medical advice agent
-                raw_result = run_agent("45", "Male", "English", extracted_data, model)
-
-                # Check for errors in agent output
-                if "error" in raw_result:
-                    print(f"AGENT ERROR: {raw_result['error'][:80]}...")
+                raw = run_agent(DEFAULT_AGE, DEFAULT_GENDER, DEFAULT_LANGUAGE, extracted, model, skip_routing=True)
+                if "error" in raw:
+                    print("ERROR")
                     continue
-
                 print("OK")
+                eval_res = evaluate_case(gt, json.dumps(raw))
+                text = " ".join(
+                    [
+                        str(raw.get("health_status_reason", "")),
+                        str(raw.get("age_specific_context", "")),
+                    ]
+                    + (raw.get("foods_to_eat") or [])
+                    + (raw.get("foods_to_avoid") or [])
+                )
+                readability = calculate_readability(text)
+                fhir_score, _ = validate_fhir_bundle(raw.get("fhir_bundle"))
 
-                # Evaluate hallucination using LLM-as-a-judge
-                ai_advice_str = json.dumps(raw_result)
-                eval_res = evaluate_case(gt_report, ai_advice_str)
-
-                # Calculate Readability on the plain-text portions of the response
-                text_parts = [
-                    str(raw_result.get("health_status_reason", "")),
-                    str(raw_result.get("scariest_word_translated", "")),
-                    str(raw_result.get("age_specific_context", "")),
-                ]
-                if isinstance(raw_result.get("foods_to_eat"), list):
-                    text_parts += raw_result["foods_to_eat"]
-                if isinstance(raw_result.get("foods_to_avoid"), list):
-                    text_parts += raw_result["foods_to_avoid"]
-
-                combined_text = " ".join(text_parts)
-                readability = calculate_readability(combined_text)
-
-                # Validate FHIR bundle compliance
-                fhir_bundle = raw_result.get("fhir_bundle")
-                fhir_score, _ = validate_fhir_bundle(fhir_bundle)
-
-                total_hallucination_score += eval_res.get("hallucination_score", 0.0)
-                total_readability_grade += readability["flesch_kincaid_grade"]
-                total_readability_ease += readability["flesch_reading_ease"]
-                total_fhir_score += fhir_score
-                successful_runs += 1
-
+                hal_list.append(eval_res.get("hallucination_score", 0.0))
+                grade_list.append(readability["flesch_kincaid_grade"])
+                ease_list.append(readability["flesch_reading_ease"])
+                fhir_list.append(fhir_score)
+                successful += 1
             except Exception as e:
                 print(f"EXCEPTION: {e}")
 
-        # Calculate averages for this configuration
-        if successful_runs > 0:
-            avg_hal = total_hallucination_score / successful_runs
-            avg_grade = total_readability_grade / successful_runs
-            avg_ease = total_readability_ease / successful_runs
-            avg_fhir = total_fhir_score / successful_runs
-        else:
-            avg_hal, avg_grade, avg_ease, avg_fhir = 0.0, 0.0, 0.0, 0.0
-
-        print(f"\n  [{name}] Results ({successful_runs}/{len(cases)} successful):")
-        print(f"    Hallucination (Faithfulness): {avg_hal:.2f} / 10.0")
-        print(f"    Flesch-Kincaid Grade Level:   {avg_grade:.2f}  (lower = simpler)")
-        print(f"    Flesch Reading Ease:          {avg_ease:.2f}  (higher = easier)")
-        print(f"    FHIR Bundle Compliance:       {avg_fhir * 100:.1f}%")
-
         results[name] = {
-            "avg_hallucination": avg_hal,
-            "avg_grade_level": avg_grade,
-            "avg_readability_ease": avg_ease,
-            "avg_fhir_validation": avg_fhir,
-            "successful_runs": successful_runs,
-            "total_cases": len(cases)
+            "avg_hallucination": summarize(hal_list)["mean"],
+            "formatted_faithfulness": format_mean_std(hal_list),
+            "avg_grade_level": summarize(grade_list)["mean"],
+            "formatted_grade": format_mean_std(grade_list),
+            "avg_readability_ease": summarize(ease_list)["mean"],
+            "formatted_ease": format_mean_std(ease_list),
+            "avg_fhir_validation": summarize(fhir_list)["mean"],
+            "formatted_fhir": format_mean_std(fhir_list),
+            "successful_runs": successful,
+            "total_cases": len(cases),
         }
 
-    # Generate Markdown report table (IEEE paper ready)
-    report_md = "# Model Configuration Benchmarking Report\n\n"
-    report_md += "> Evaluated on PMC-Patients real-world clinical case summaries (N={})\n\n".format(count)
-    report_md += "| Configuration | Hallucination Score (Faithfulness 0-10) | FK Grade Level (Lower=Simpler) | Flesch Reading Ease (Higher=Easier) | FHIR Bundle Compliance | Successful Cases |\n"
-    report_md += "| --- | --- | --- | --- | --- | --- |\n"
+        print(f"  Faithfulness: {results[name]['formatted_faithfulness']}")
+        print(f"  FK Grade:     {results[name]['formatted_grade']}")
 
+    report_md = "# Model Configuration Benchmark\n\n"
+    report_md += f"Dataset: `{input_file}` (N={len(cases)})\n\n"
+    report_md += "| Configuration | Faithfulness (0-10) | FK Grade | Reading Ease | FHIR Compliance | Cases |\n"
+    report_md += "| --- | --- | --- | --- | --- | --- |\n"
     for name, m in results.items():
         report_md += (
-            f"| {name} "
-            f"| {m['avg_hallucination']:.2f} / 10.0 "
-            f"| {m['avg_grade_level']:.2f} "
-            f"| {m['avg_readability_ease']:.2f} "
-            f"| {m['avg_fhir_validation'] * 100:.1f}% "
-            f"| {m['successful_runs']} / {m['total_cases']} |\n"
+            f"| {name} | {m['formatted_faithfulness']} | {m['formatted_grade']} | "
+            f"{m['formatted_ease']} | {m['formatted_fhir']} | {m['successful_runs']}/{m['total_cases']} |\n"
         )
 
-    report_md += "\n## Metric Definitions\n"
-    report_md += "- **Hallucination Score**: LLM-as-a-Judge (Gemini 2.5 Flash) evaluating faithfulness of AI advice against the source clinical report. 10.0 = perfectly faithful, 0.0 = completely hallucinated.\n"
-    report_md += "- **FK Grade Level**: Flesch-Kincaid Grade Level of the generated patient advice text. Grade 5-7 is the target for patient-facing health communication.\n"
-    report_md += "- **Flesch Reading Ease**: Score 0-100. 60-70 = 'Standard' (understandable by 13-15 year olds). Higher is better for patient-facing content.\n"
-    report_md += "- **FHIR Bundle Compliance**: Percentage of required FHIR R4 Observation fields (resourceType, type, status, code) present and correct.\n"
-
-    print("\n" + "=" * 60)
-    print("COMPARATIVE EVALUATION COMPLETE")
-    print("=" * 60)
-    print(report_md)
-
-    with open("comparison_results.md", "w", encoding="utf-8") as f:
+    with open(output_md, "w", encoding="utf-8") as f:
         f.write(report_md)
-    print("Results saved to: comparison_results.md")
+    with open("comparison_results.json", "w", encoding="utf-8") as f:
+        json.dump(results, f, indent=2)
+
+    print(f"\nSaved: {output_md}, comparison_results.json")
 
 
 if __name__ == "__main__":
-    run_comparison_benchmark()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input", default=REAL_WORLD_CASES_CSV)
+    parser.add_argument("--count", type=int, default=DEFAULT_COMPARISON_COUNT)
+    args = parser.parse_args()
+    run_comparison_benchmark(args.input, args.count)

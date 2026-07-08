@@ -16,7 +16,7 @@
 
 The **Patient Action Guide** is an Explainable AI (XAI) application designed to democratize medical report comprehension and bridge the health-literacy gap. Leveraging Google's Gemini 2.5 Flash, the architecture ingests unstructured medical documents (PDFs) and low-resource optical imagery (scans, photos) to output layman-friendly, highly localized clinical action plans. 
 
-Unlike generic medical LLMs, this system implements a **culturally calibrated engine** optimized for Indian demographics, offering native dietary heuristics, Ayurvedic interaction safety checks, predictive "Point-of-No-Return" forecasting, and robust data sanitization pipelines for privacy-preserving clinical extraction.
+Unlike generic medical LLMs, this system implements a **culturally calibrated engine** optimized for Indian demographics, offering native dietary heuristics, Ayurvedic interaction safety checks, predictive "Point-of-No-Return" forecasting, and privacy-aware preprocessing before cloud inference.
 
 ---
 
@@ -38,9 +38,9 @@ Our research introduces several key innovations to the Medical Vision-Language M
 * **Cost Guard Prediction:** Actively suggests clinically equivalent, lower-cost baseline diagnostics to prevent unnecessary patient expenditure.
 
 ### 4. Explainable AI (XAI) & Privacy
-* **Traceability Matrix:** Bridges the "Black Box" trust gap by mapping every piece of critical advice back to an exact quotation or biometric extraction from the raw medical input.
-* **Automated Data Sanitization:** Integration of the Microsoft `presidio` suite for active PII redaction prior to cloud inference.
-* **HL7 FHIR R4 Interoperability:** Automated structuring of extracted results into interoperable FHIR JSON `Observation` bundles.
+* **Traceability Matrix:** Maps critical advice back to quotations or values from the uploaded report.
+* **Text PII Redaction:** Microsoft Presidio (with regex fallback) for text inputs; image/PDF inputs rely on instruction-based redaction before Gemini inference.
+* **HL7 FHIR R4 Interoperability:** Structured FHIR JSON `Observation` bundles when quantifiable lab results are detected.
 
 ---
 
@@ -90,34 +90,54 @@ flowchart TD
 
 ---
 
-## 📊 Experimental Results & Automated Evaluation
+## 📊 Evaluation Framework
 
-To validate the model's clinical reliability, we utilize a three-pronged automated testing framework. Evaluation scripts are provided in the repository for full reproducibility.
+Automated evaluation scripts measure faithfulness, readability, FHIR compliance, demographic fairness, and visual robustness. **Run evaluations locally to generate your own scores** — results depend on your API keys and dataset.
 
-### Summary of Performance Metrics
+### Quick start (full suite)
 
-| Evaluation Suite | Score | Interpretation |
-|------------------|-------|-------------|
-| **Hallucination & Faithfulness** | **10.0 / 10.0** | AI achieves perfect fidelity to the raw medical report, introducing zero fabricated clinical facts. |
-| **Demographic Bias & Fairness** | **90.0%** | Statistically significant adaptability in tone and guidance across diverse age and gender vectors. |
-| **Visual Adversarial Robustness** | **50.0%** | Maintains diagnostic pipeline integrity under simulated low-resource clinical optical environments (Gaussian blur and sensor noise). |
+```bash
+# 1. Configure API keys
+cp .env.example .env
 
-### Reproducing the Experiments
+# 2. Build evaluation dataset from PMC abstracts (no synthetic lab injection)
+python download_pmc.py --count 50
 
-Researchers can execute the exact evaluation protocols using the following commands:
+# 3. Run everything (pipeline + ablation + bias + robustness)
+python run_all_evaluations.py --count 10
+```
 
-1. **Faithfulness / Hallucination Testing:**
-   ```bash
-   python evaluate_hallucination.py
-   ```
-2. **Bias / Fairness Testing:**
-   ```bash
-   python evaluate_bias.py
-   ```
-3. **Adversarial Visual Robustness:**
-   ```bash
-   python evaluate_robustness.py
-   ```
+### Individual scripts
+
+| Script | Purpose |
+|--------|---------|
+| `evaluate_pipeline.py` | End-to-end: run agent → score → `evaluation_results.csv` + `evaluation_summary.json` |
+| `evaluate_ablation.py` | B0–B4 ablation study → `ablation_results.json` |
+| `evaluate_bias.py` | 8 demographic personas → `fairness_evaluation_results.json` |
+| `evaluate_robustness.py` | Degraded image conditions → `robustness_evaluation_results.json` |
+| `evaluate_hallucination.py` | LLM-as-judge on pre-filled advice pairs |
+| `evaluate_comparison.py` | Temperature 0.0 vs 0.7 comparison |
+| `clinician_review.py export` | Create `clinician_review_sheet.csv` for doctor ratings |
+| `clinician_review.py import` | Merge clinician scores back into results |
+
+### Offline smoke test (no API key)
+
+```bash
+python evaluate_pipeline.py --input evaluation_cases.csv --skip-agent
+```
+*(Requires pre-filled `ai_generated_advice` column, or use only after running the agent.)*
+
+### Clinician validation workflow
+
+```bash
+python evaluate_pipeline.py --count 20
+python clinician_review.py export
+# Doctors fill clinician_grade_1_to_10, is_clinically_safe, clinician_feedback_notes
+python clinician_review.py import
+python clinician_review.py summarize
+```
+
+Literature comparison values (GPT-4, MIRAGE, etc.) are stored in `evaluation/literature_baselines.json` for **reference only** — they are not reproduced automatically.
 
 ---
 

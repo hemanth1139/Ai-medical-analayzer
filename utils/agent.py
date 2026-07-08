@@ -79,29 +79,45 @@ def _parse_and_validate_json(text_output, model, extracted_data, prompt):
     
     return None
 
-def run_agent(age, gender, language, extracted_data, model):
-    file_type_hint = "A PDF document with text pages" if extracted_data["type"] == "pdf_images" else "An image file (JPG/PNG)"
-    
-    # 1. Routing call
-    routing_prompt = f"The user uploaded a {file_type_hint}. Which tool is more appropriate to analyze this type of file?"
-    
+def _file_type_hint(extracted_data):
+    t = extracted_data.get("type")
+    if t == "pdf_images":
+        return "A PDF document rendered as page images"
+    if t == "image":
+        return "An image file (JPG/PNG) such as a scan or photo"
+    if t == "text":
+        return "A text-based medical report"
+    return "A medical document"
+
+
+def run_agent(age, gender, language, extracted_data, model, skip_routing=False):
+    file_type_hint = _file_type_hint(extracted_data)
+
+    # Plain text inputs (evaluation path) skip routing — no visual ambiguity
+    if extracted_data.get("type") == "text":
+        skip_routing = True
+
     try:
-        routing_response = model.generate_content(
-            routing_prompt,
-            tools=[analyze_text_document, analyze_visual_document]
-        )
-        
-        tool_name = "analyze_text_document" # Default if routing fails
-        doc_desc = "medical document"
-        
-        if routing_response.candidates and routing_response.candidates[0].content.parts:
-            part = routing_response.candidates[0].content.parts[0]
-            if hasattr(part, 'function_call') and part.function_call:
-                tool_name = part.function_call.name
-                doc_desc = dict(part.function_call.args).get("document_description", doc_desc)
-                
-        # 2. Build prompt
-        prompt = build_prompt(age, gender, language, doc_desc)
+        tool_name = "analyze_text_document"
+        doc_desc = "typed or text-based medical document"
+
+        if not skip_routing:
+            routing_prompt = (
+                f"The user uploaded {file_type_hint}. "
+                "Which tool is more appropriate to analyze this type of file?"
+            )
+            routing_response = model.generate_content(
+                routing_prompt,
+                tools=[analyze_text_document, analyze_visual_document],
+            )
+            if routing_response.candidates and routing_response.candidates[0].content.parts:
+                part = routing_response.candidates[0].content.parts[0]
+                if hasattr(part, "function_call") and part.function_call:
+                    tool_name = part.function_call.name
+                    doc_desc = dict(part.function_call.args).get("document_description", doc_desc)
+
+        analysis_mode = "visual" if tool_name == "analyze_visual_document" else "text"
+        prompt = build_prompt(age, gender, language, doc_desc, analysis_mode=analysis_mode)
         
         sanitized_content, privacy_instruction = sanitize_input(extracted_data.get("content"), extracted_data.get("type"))
         extracted_data["content"] = sanitized_content

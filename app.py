@@ -15,7 +15,8 @@ from utils.agent import run_agent
 #
 # LLM: Gemini reasons over the visual content along with the patient age and gender to generate personalized action-oriented advice. It never summarizes — it only tells the patient what to do next.
 #
-# RAG: A medical knowledge base covering 12 categories of conditions and Indian diet recommendations is embedded directly in the prompt. Gemini's 1 million token context window retrieves relevant facts internally when generating advice. This is the Retrieve Augment Generate pattern without a separate vector store.
+# RAG: A medical knowledge base covering 12 categories is embedded directly in the prompt.
+# Gemini retrieves relevant facts from this context when generating advice — prompt-grounded knowledge, not a vector database.
 #
 # Agent: Gemini function calling is used to route each upload to the correct tool — analyze_text_document for typed PDFs and analyze_visual_document for images and scanned files. The LLM itself makes this routing decision, not hardcoded Python logic. This is a genuine agent observe decide act loop.
 

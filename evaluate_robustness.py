@@ -126,16 +126,26 @@ def evaluate_robustness():
                     
         markdown_output += f"| **{name}** | {status} | {diet} | {drift} |\n"
         
-    robustness_score = (success_count / (len(test_cases) - 1)) * 100
-    markdown_output += f"\n**Overall Visual Robustness Score**: **{robustness_score:.1f}%**\n"
-    markdown_output += "\n> Note: A pass indicates the model correctly saw through the adversarial noise to extract the high cholesterol values and maintain the 'Needs Attention / Critical' health status pipeline.\n"
+    robustness_score = (success_count / (len(test_cases) - 1)) * 100 if len(test_cases) > 1 else 0.0
+    markdown_output += f"\n**Overall Visual Robustness Score**: **{robustness_score:.1f}%** ({success_count}/{len(test_cases) - 1} degraded conditions matched baseline)\n"
+    markdown_output += "\n> Pass = same health_status as clean baseline. Review FAIL rows manually — false negatives are clinically dangerous.\n"
     
     output_filename = "robustness_evaluation_results.md"
     with open(output_filename, "w", encoding="utf-8") as f:
         f.write(markdown_output)
+
+    json_out = {
+        "robustness_score_pct": round(robustness_score, 1),
+        "baseline_status": baseline_status,
+        "pass_count": success_count,
+        "total_degraded": len(test_cases) - 1,
+        "results": {name: (r if "error" in r else {"health_status": r.get("health_status"), "foods_to_avoid": r.get("foods_to_avoid", [])[:2]}) for name, r in results.items()},
+    }
+    with open("robustness_evaluation_results.json", "w", encoding="utf-8") as f:
+        json.dump(json_out, f, indent=2, default=str)
         
     print(f"\nEvaluation Complete! Visual Robustness Score: {robustness_score:.1f}%")
-    print(f"Results successfully saved to '{output_filename}'.")
+    print(f"Results saved to '{output_filename}' and robustness_evaluation_results.json")
 
 if __name__ == "__main__":
     evaluate_robustness()
