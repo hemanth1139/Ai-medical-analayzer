@@ -5,3 +5,6 @@ Pillow
 python-dotenv
 presidio-analyzer
 presidio-anonymizer
+groq
+openai
+textstat
