@@ -94,12 +94,81 @@ deployment. Unlike most prior work, our system integrates a Presidio-based PII
 sanitization layer \cite{microsoftpresidio} as a mandatory preprocessing step,
 ensuring patient identifiers are anonymized before any LLM inference occurs.
 
+\textbf{AI-Powered Report Analyzers and Contemporary Systems.}
+A parallel body of work has emerged targeting automated medical report analysis.
+Aswani et al.\ \cite{aswani2025aimedical, aswani2025intelligent} proposed an
+AI-powered medical report analyzer with organ visualization, demonstrating the
+feasibility of combining structured extraction with visual anatomical overlays.
+Tiwari et al.\ \cite{tiwari2026medify} introduced Medify, an LLM-powered analyzer
+built on large language models for report summarization. Srinivasulu et al.\
+\cite{srinivasulu2025mediscan} developed MEDISCAN-AI, an AI health report advisor
+targeting patient-directed explanations. While these systems demonstrate the growing
+momentum toward automated medical analysis, they do not address multimodal ingestion
+of scanned documents, culturally calibrated output, FHIR R4-compliant structured
+data generation, or explicit PII sanitization.
+
+\textbf{Fuzzy and Hybrid AI Approaches.}
+Ticala et al.\ \cite{ticala2025fuzzy} proposed an innovative medical image analyzer
+incorporating fuzzy logic to support clinical decision-making under uncertainty, achieving
+improved robustness in ambiguous diagnostic scenarios. While fuzzy approaches offer
+interpretable uncertainty quantification, they are inherently limited to image-only
+pipelines and do not produce patient-facing action plans or support unstructured report
+ingestion.
+
+\textbf{Fairness and NLP in Healthcare.}
+Esfahani et al.\ \cite{esfahani2026faircare} presented FairCareNLP, an AI-driven
+patient review analyzer emphasizing demographic fairness in healthcare NLP. While
+this work highlights the critical importance of bias mitigation in clinical AI,
+it targets patient-generated review text rather than structured clinical reports
+and does not address multimodal inputs or actionable plan generation. In contrast,
+our system implements demographic-aware personalization (age and gender calibration)
+directly within the report analysis pipeline.
+
 \textbf{Positioning.}
 Unlike prior systems targeting physician-to-physician communication, our work
 focuses exclusively on \textit{patient-facing} advice generation: simplifying
 medical jargon to Grade 5--7 reading level, personalizing output by age and gender,
 supporting multilingual output (English and Tamil), and producing FHIR R4-compliant
-structured data within a single end-to-end pipeline.
+structured data within a single end-to-end pipeline. Crucially, our system uniquely
+combines multimodal ingestion (text PDFs, scans, ECG strips, handwritten prescriptions),
+RAG-based knowledge grounding, HIPAA-compliant PII sanitization, and culturally
+calibrated dietetic recommendations within one unified architecture---a combination
+not present in any single prior work.
+
+Table~\ref{tab:comparison} provides a structured feature comparison between the
+three most closely related contemporary systems and our proposed approach.
+
+\begin{table*}[!t]
+\renewcommand{\arraystretch}{1.3}
+\caption{Feature Comparison of Closely Related Medical Report Analysis Systems}
+\label{tab:comparison}
+\centering
+\begin{tabular}{p{2.8cm}|p{2.5cm}|p{2.5cm}|p{2.5cm}|p{3.2cm}}
+\toprule
+\textbf{Feature} &
+\textbf{Medify \cite{tiwari2026medify}} &
+\textbf{Aswani et al. \cite{aswani2025aimedical}} &
+\textbf{MEDISCAN-AI \cite{srinivasulu2025mediscan}} &
+\textbf{Patient Action Guide (Ours)} \\
+\midrule
+Input Modality        & Text only          & Text + Organ images  & Text only            & Text PDF, Scan, ECG, Handwritten Rx \\
+\hline
+LLM Backbone          & LLM (unspecified)  & LLM (unspecified)    & AI model (unspecified) & Gemini 2.5 Flash \\
+\hline
+RAG Grounding         & \texttimes         & \texttimes           & \texttimes           & \checkmark (12-category KB, 1M-token context) \\
+\hline
+PII Sanitization      & \texttimes         & \texttimes           & \texttimes           & \checkmark (Microsoft Presidio / HIPAA) \\
+\hline
+FHIR R4 Output        & \texttimes         & \texttimes           & \texttimes           & \checkmark (EHR-ready bundles) \\
+\hline
+Readability Control   & \texttimes         & \texttimes           & Partial              & \checkmark (Grade 5--7 FKGL target) \\
+\hline
+Cultural Calibration  & \texttimes         & \texttimes           & \texttimes           & \checkmark (regional diet, Ayurvedic alerts) \\
+\hline
+Evaluation Dataset    & Not reported       & Not reported         & Not reported         & PMC-Patients (real-world clinical) \\
+\bottomrule
+\end{tabular}
+\end{table*}
 
 \section{Proposed Methodology}
 
